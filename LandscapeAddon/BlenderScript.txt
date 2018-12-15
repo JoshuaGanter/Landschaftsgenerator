@@ -1,0 +1,73 @@
+import os,sys
+
+def _checkPath():
+    path = os.path.dirname(__file__)
+    print(path)
+    print(sys.path)
+    if path in sys.path:
+        sys.path.remove(path)
+    # make <path> the first one to search for a module --> current path is the first one to check
+    sys.path.insert(0, path)
+_checkPath()
+
+import bpy
+from bpy_extras.io_utils import ImportHelper
+
+sys.path.append(os.path.dirname("C:\\Users\\DSD\\AppData\\Roaming\\Blender Foundation\\Blender\\2.79\\scripts\\addons\\MatrixExtruder\\Dependencies"))
+print(sys.path)
+
+import srtm
+import numpy as np
+import bmesh
+
+from bpy_extras.object_utils import AddObjectHelper, object_data_add
+
+print("SRTM Name:" + srtm.__name__)
+
+geo_elevation_data = srtm.get_data()
+map_center = [48.05, 8.2]
+map_size = 0.1
+
+lat1 = map_center[0] - map_size / 2
+lat2 = map_center[0] + map_size / 2
+long1 = map_center[1] - map_size / 2
+long2 = map_center[1] + map_size / 2
+height = (lat2 - lat1) * 4000
+width = (long2 - long1) * 4000
+max_elevation = 1000
+data = geo_elevation_data.get_image((width,height), (lat1, lat2), (long1, long2), max_elevation, mode="array").astype(np.int16)
+
+#data = [[1,1,1,1],[2,2,2,2],[2,2,2,2],[1,1,1,1]]
+#data = np.reshape(data, (4,4))
+
+width = data.shape[1]
+height = data.shape[0]
+
+#create plane at 3D Cursor
+#bpy.ops.mesh.primitive_plane_add(view_align=False, enter_editmode=False, 
+#location=bpy.context.scene.cursor_location, 
+#layers=(True, False, False, False, False, False, False, False, False, False, False, 
+#False, False, False, False, False, False, False, False, False))
+
+# generate Vertices
+verts = [None] * (width * height) # width * height
+vert_counter = 0
+for x in range (height):
+    for y in range (width):
+        verts[vert_counter] = (x, y, data[x, y])
+        vert_counter += 1
+
+edges = []
+face_counter = 0
+faces = [None] * ((width-1) * (height-1))
+for x in range (height-1):
+    for y in range (width-1):   
+        faces[face_counter] = [x*width+y, x*width+y+1, x*width+y + width + 1, x*width+y + width]
+        face_counter += 1
+
+mesh = bpy.data.meshes.new(name="NewObject")  # add a new mesh
+mesh.from_pydata(verts, edges, faces)
+context =bpy.context
+object_data_add(context, mesh)
+
+print("FINISHED")
