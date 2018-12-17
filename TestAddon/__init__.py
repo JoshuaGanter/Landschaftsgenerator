@@ -12,6 +12,18 @@ sys.path.append(os.path.dirname(__file__) + "/dep")
 
 import srtm
 
+from bpy.types import(
+        Panel,
+        Operator,
+        PropertyGroup
+        )
+
+from bpy.props import(
+        StringProperty,
+        PointerProperty,
+        FloatProperty
+        )
+
 bl_info = {
 	'name': 'Landscape Generator',
 	'description': 'A tool for importing SRTM data into blender.',
@@ -37,6 +49,14 @@ class LandscapeGeneratorPanel(bpy.types.Panel) :
     bl_label = "Create Landscape"
 
     def draw(self, context) :
+        scene = context.scene.properties
+
+        column = self.layout.column(align = True)
+        column.prop(scene, "latitude")
+        column = self.layout.column(align = True)
+        column.prop(scene, "longitude")
+        column = self.layout.column(align = True)
+        column.prop(scene, "size")
         column = self.layout.column(align = True)
         column.operator("mesh.create_landscape", text = "Create Landscape")
     #end draw
@@ -52,17 +72,19 @@ class CreateLandscape(bpy.types.Operator) :
 
         #procedure for generating landscape
 
-        geo_elevation_data = srtm.get_data()
-        map_center = [20.836962, -156.910592]
-        map_size = 0.4
-        depth = 20
-        mask_width = 2048
-        mask_height = 2048
+        scene = context.scene.properties
 
-        lat1 = map_center[0] - map_size / 2
-        lat2 = map_center[0] + map_size / 2
-        long1 = map_center[1] - map_size / 2
-        long2 = map_center[1] + map_size / 2
+        geo_elevation_data = srtm.get_data()
+        #map_center = [20.836962, -156.910592]
+        latitude = scene.latitude
+        longitude = scene.longitude
+        map_size = scene.size
+        depth = 20
+
+        lat1 = latitude - map_size / 2
+        lat2 = latitude + map_size / 2
+        long1 = longitude - map_size / 2
+        long2 = longitude + map_size / 2
         height = (lat2 - lat1) * 500
         width = (long2 - long1) * 500
         max_elevation = 0
@@ -74,64 +96,6 @@ class CreateLandscape(bpy.types.Operator) :
         height = data.shape[0]
 
         print(data.shape)
-
-        def prepare_image(image_name, width, height, value=[0,0,0,1]):
-            img = bpy.data.images[image_name]
-            img.scale(width, height)
-            pixels = [None] * (width * height)
-            
-            for i in range(width * height):
-                pixels[i] = value
-
-            img.pixels = [chan for px in pixels for chan in px]
-            img.update()
-
-        def finish_image(image_name, arr, width = 1024, height = 1024):
-            img = bpy.data.images[image_name]
-            img.pixels = [chan for px in arr for chan in px]
-            img.scale(width, height)
-            img.update()
-
-        # Fill Grass Mask
-        prepare_image("GrassMask", width, height)
-        prepare_image("SnowMask", width, height)
-        prepare_image("WaterMask", width, height)
-        prepare_image("StoneMask", width, height)
-
-        pixels_grass = [None] * (width * height)
-        pixels_snow = [None] * (width * height)
-        pixels_water = [None] * (width * height)
-        pixels_stone = [None] * (width * height)
-
-        for x in range(width):
-            for y in range(height):
-                val = data[x, y] / depth
-                
-                # Grass Mask
-                r = g = b = 1 if val > 0 and val < 0.6 else 0
-                pixels_grass[(y * height) + x] = [r,g,b,1]
-                
-                # Snow Mask
-                r = g = b = 1 if val > 0.8 else 0
-                pixels_snow[(y * height) + x] = [r,g,b,1]
-                
-                # Water Mask
-                r = g = b = 1 if val == 0 else 0
-                pixels_water[(y * height) + x] = [r,g,b,1]
-                
-                # Stone Mask
-                r = g = b = 1 if val > 0.6 and val < 0.8 else 0
-                pixels_stone[(y * height) + x] = [r,g,b,1]
-                
-        pixels_grass = pixels_grass
-        pixels_snow = pixels_snow
-        pixels_water = pixels_water
-        pixels_stone = pixels_stone
-
-        finish_image("GrassMask", pixels_grass)
-        finish_image("SnowMask", pixels_snow)
-        finish_image("WaterMask", pixels_water)
-        finish_image("StoneMask", pixels_stone)
 
         # generate Vertices
         verts = [None] * (width * height) # width * height
@@ -154,9 +118,9 @@ class CreateLandscape(bpy.types.Operator) :
         mesh.update(calc_edges=True)
         for f in mesh.polygons:
             f.use_smooth = True
+        #object_data_add(context, mesh, operator=self)
 
         obj = bpy.data.objects.new("RandomObject", mesh)
-        obj.data.materials.append(bpy.data.materials["LandscapeMaterial"])
         mod = obj.modifiers.new("Subsurf", "SUBSURF")
         mod.levels = 2
         mod.render_levels = 2
@@ -170,14 +134,42 @@ class CreateLandscape(bpy.types.Operator) :
 
 #end CreateLandscape
 
+class Addon_Properties(PropertyGroup):
+
+    latitude = FloatProperty(
+        name = "Lat",
+        description = "Latitude of your Map Center",
+        default = 1.0,
+        ) 
+
+    longitude = FloatProperty(
+        name = "Long",
+        description = "Longitude of your Map Center",
+        default = 1.0,
+        ) 
+
+    size = FloatProperty(
+        name = "Size",
+        description = "Edge length of your map in degree",
+        default = 0.5,
+        ) 
+
+classes = (
+    LandscapeGeneratorPanel,
+    Addon_Properties,
+    CreateLandscape
+    )
+
 def register() :
-    bpy.utils.register_class(CreateLandscape)
-    bpy.utils.register_class(LandscapeGeneratorPanel)
+    for cls in classes:
+        bpy.utils.register_class(cls)
+    bpy.types.Scene.properties = PointerProperty(type=Addon_Properties)
 #end register
 
 def unregister() :
-    bpy.utils.unregister_class(CreateLandscape)
-    bpy.utils.unregister_class(LandscapeGeneratorPanel)
+    for cls in classes:
+        bpy.utils.unregister_class(cls)
+    del bpy.types.Scene.properties
 #end unregister
 
 if __name__ == "__main__" :
