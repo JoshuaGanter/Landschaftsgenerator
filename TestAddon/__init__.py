@@ -15,14 +15,18 @@ import srtm
 from bpy.types import(
         Panel,
         Operator,
-        PropertyGroup
-        )
+        PropertyGroup,
+        UIList
+    )
 
 from bpy.props import(
         StringProperty,
         PointerProperty,
-        FloatProperty
-        )
+        FloatProperty,
+        IntProperty,
+        EnumProperty,
+        CollectionProperty,
+    )
 
 bl_info = {
 	'name': 'Landscape Generator',
@@ -41,7 +45,7 @@ bl_info = {
 	'category': '3D View'
 }
 
-class LandscapeGeneratorPanel(bpy.types.Panel) :
+class LandscapeGeneratorPanel(Panel) :
     bl_space_type = "VIEW_3D"
     bl_region_type = "TOOLS"
     bl_context = "objectmode"
@@ -62,6 +66,49 @@ class LandscapeGeneratorPanel(bpy.types.Panel) :
     #end draw
 
 #end LandscapeGeneratorPanel
+
+class TextureGeneratorPanel(Panel) :
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_context = "objectmode"
+    bl_category = "Create"
+    bl_label = "Create Texture"
+
+    def draw(self, context) :
+        scene = context.scene.properties
+        layout = self.layout
+
+        column = self.layout.column(align = True)
+        column.prop(scene, "layers")
+
+        column.label("Layers:")
+        layout.template_list(
+            "LayerList", 
+            "my_layer_list", 
+            scene,
+            "layers",
+            scene,
+            "active_layer_index",
+            type='DEFAULT'
+        )
+
+        row = layout.row(align=True)
+        row.operator("scene.add_my_list_item")
+        row.operator("scene.remove_my_list_item")
+
+        column = self.layout.column(align = True)
+        column.prop(scene, "layer_blending")
+
+        column = self.layout.column(align = True)
+        column.prop(scene, "steepness_layer_name")
+        column = self.layout.column(align = True)
+        column.prop(scene, "steepness_threshold")
+
+        column = self.layout.column(align = True)
+        column.operator("mesh.create_texture", text = "Create Texture")
+    #end draw
+
+#end TextureGeneratorPanel
 
 class CreateLandscape(bpy.types.Operator) :
     bl_idname = "mesh.create_landscape"
@@ -134,6 +181,72 @@ class CreateLandscape(bpy.types.Operator) :
 
 #end CreateLandscape
 
+class CreateTexture(bpy.types.Operator):
+    bl_idname = "mesh.create_texture"
+    bl_label = "Create Texture"
+    bl_options = {"UNDO"}
+
+    def invoke(self, context, event) :
+
+        #create Texture
+
+        print("FINISHED")
+
+        return {"FINISHED"}
+    #end invoke
+
+#end CreateTexture
+
+#UIList
+class LayerList (UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+        layout.label("", icon="TPAINT_HLT")
+        layout.prop(item, "name")
+        layout.prop(item, "start_height")
+        layout.prop(item, "end_height")
+
+class MyListItem(PropertyGroup):
+    name = StringProperty(name="Name", default="Layer Name")
+
+    start_height = FloatProperty(
+        name = "Start Height",
+        description = "Where this layer begins",
+        default = 0,
+    )
+
+    end_height = FloatProperty(
+        name = "End Height",
+        description = "Where this layer ends",
+        default = 0,
+    )
+
+class AddMyListItem(Operator):
+    bl_idname = "scene.add_my_list_item"
+    bl_label = "Add Entry"
+    bl_options = set()
+
+    def execute(self, context):
+        settings = context.scene.properties
+        settings.layers.add()
+        settings.active_layer_index = len(settings.layers) - 1
+        return {'FINISHED'}
+
+class RemoveMyListItem(Operator):
+    bl_idname = "scene.remove_my_list_item"
+    bl_label = "Remove Active Entry"
+    bl_options = set()
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.properties.active_layer_index >= 0
+
+    def execute(self, context):
+        settings = context.scene.properties  
+        settings.layers.remove(settings.active_layer_index)
+        settings.active_layer_index -= 1
+        return {'FINISHED'}
+
+#Properties
 class Addon_Properties(PropertyGroup):
 
     latitude = FloatProperty(
@@ -153,11 +266,51 @@ class Addon_Properties(PropertyGroup):
         description = "Edge length of your map in degree",
         default = 0.5,
         ) 
+    
+    layers = IntProperty(
+        name = "Layers",
+        description = "Number of different texture layers",
+        default = 0,
+        )
+
+    layer_blending = FloatProperty(
+        name = "Layer Blending",
+        description = "Blending value for layer borders",
+        default = 0,
+        ) 
+
+    steepness_layer_name = StringProperty(
+        name = "Steepness Layer Name",
+        description = "Name of steepness layer",
+        default = "Steepness Layer",
+        )
+
+    steepness_threshold = FloatProperty(
+        name = "Steepness Threshold", 
+        description = "Threshold for the steepness layer", #measure unit?
+        default = 0.8,
+        )
+
+    layers = CollectionProperty(
+        type=MyListItem, 
+        name="Layers"
+        )
+
+    active_layer_index = IntProperty(
+        name="Active layer", 
+        default=-1
+        )
 
 classes = (
     LandscapeGeneratorPanel,
-    Addon_Properties,
-    CreateLandscape
+    TextureGeneratorPanel,
+    CreateLandscape,
+    CreateTexture,
+    LayerList,
+    MyListItem,
+    AddMyListItem,
+    RemoveMyListItem,
+    Addon_Properties
     )
 
 def register() :
