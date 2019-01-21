@@ -86,7 +86,7 @@ class TextureGeneratorPanel(Panel) :
             "LayerList", 
             "my_layer_list", 
             scene,
-            "layers",
+            "layers_list",
             scene,
             "active_layer_index",
             type='DEFAULT'
@@ -128,14 +128,14 @@ class CreateLandscape(bpy.types.Operator) :
         map_size = scene.size
         depth = 20
 
-        lat1 = latitude - map_size / 2
-        lat2 = latitude + map_size / 2
-        long1 = longitude - map_size / 2
-        long2 = longitude + map_size / 2
-        height = (lat2 - lat1) * 500
-        width = (long2 - long1) * 500
+        lat_1 = latitude - map_size / 2
+        lat_2 = latitude + map_size / 2
+        long_1 = longitude - map_size / 2
+        long_2 = longitude + map_size / 2
+        height = (lat_2 - lat_1) * 500
+        width = (long_2 - long_1) * 500
         max_elevation = 0
-        data = geo_elevation_data.get_image((width,height), (lat1, lat2), (long1, long2), max_elevation, mode="array").astype(np.int16)
+        data = geo_elevation_data.get_image((width,height), (lat_1, lat_2), (long_1, long_2), max_elevation, mode="array").astype(np.int16)
 
         data = (data / np.amax(data)) * depth
 
@@ -227,8 +227,8 @@ class AddMyListItem(Operator):
 
     def execute(self, context):
         settings = context.scene.properties
-        settings.layers.add()
-        settings.active_layer_index = len(settings.layers) - 1
+        settings.layers_list.add()
+        settings.active_layer_index = len(settings.layers_list) - 1
         return {'FINISHED'}
 
 class RemoveMyListItem(Operator):
@@ -242,7 +242,7 @@ class RemoveMyListItem(Operator):
 
     def execute(self, context):
         settings = context.scene.properties  
-        settings.layers.remove(settings.active_layer_index)
+        settings.layers_list.remove(settings.active_layer_index)
         settings.active_layer_index -= 1
         return {'FINISHED'}
 
@@ -291,9 +291,9 @@ class Addon_Properties(PropertyGroup):
         default = 0.8,
         )
 
-    layers = CollectionProperty(
+    layers_list = CollectionProperty(
         type=MyListItem, 
-        name="Layers"
+        name="Layer List"
         )
 
     active_layer_index = IntProperty(
