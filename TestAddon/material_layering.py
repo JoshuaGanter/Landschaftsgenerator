@@ -54,7 +54,7 @@ def create_logistic_function_node_group():
 
     return node_group
 
-def create_landscape_material():
+def create_landscape_material(depth, texture_scale):
 
     # Check if mat already exists
     material = bpy.data.materials.get("LST_LandscapeMaterial")
@@ -71,8 +71,17 @@ def create_landscape_material():
     texture_coordinate = nodes.new("ShaderNodeTexCoord")
     texture_coordinate.name = "LST_TexCoord"
 
-    #separate_xyz_normal = nodes.new("ShaderNodeSeparateXYZ")
-    #separate_xyz_normal.name = "LST_SepXYZNormal"
+    separate_xyz_generated = nodes.new("ShaderNodeSeparateXYZ")
+    x_scaling = nodes.new("ShaderNodeMath")
+    x_scaling.name = "LST_ScaleX"
+    x_scaling.operation = "MULTIPLY"
+    x_scaling.inputs[1].default_value = texture_scale
+    y_scaling = nodes.new("ShaderNodeMath")
+    y_scaling.name = "LST_ScaleY"
+    y_scaling.operation = "MULTIPLY"
+    y_scaling.inputs[1].default_value = texture_scale
+    combine_xyz_generated = nodes.new("ShaderNodeCombineXYZ")
+    combine_xyz_generated.name = "LST_UV_Input"
 
     separate_xyz_object = nodes.new("ShaderNodeSeparateXYZ")
     separate_xyz_object.name = "LST_SepXYZObject"
@@ -80,10 +89,17 @@ def create_landscape_material():
     divide_node = nodes.new("ShaderNodeMath")
     divide_node.name = "LST_Normalize"
     divide_node.operation = "DIVIDE"
-    divide_node.inputs[1].default_value = 20
+    divide_node.inputs[1].default_value = depth
 
     # Link nodes in material
-    #node_tree.links.new(texture_coordinate.outputs[1], separate_xyz_normal.inputs[0])
+    node_tree.links.new(texture_coordinate.outputs[0], separate_xyz_generated.inputs[0])
+    node_tree.links.new(separate_xyz_generated.outputs[0], x_scaling.inputs[0])
+    node_tree.links.new(separate_xyz_generated.outputs[1], y_scaling.inputs[0])
+
+    node_tree.links.new(x_scaling.outputs[0], combine_xyz_generated.inputs[0])
+    node_tree.links.new(y_scaling.outputs[0], combine_xyz_generated.inputs[1])
+    node_tree.links.new(separate_xyz_generated.outputs[2], combine_xyz_generated.inputs[2])
+
     node_tree.links.new(texture_coordinate.outputs[3], separate_xyz_object.inputs[0])
     node_tree.links.new(separate_xyz_object.outputs[2], divide_node.inputs[0])
 
@@ -178,6 +194,7 @@ def create_landscape_layer(index, name, start_height, end_height, blend_top=.05,
     group_node.node_tree = material_group
 
 def update_landscape_layer(index, name, start_height, end_height, blend_top, blend_bottom):
+    print("Update Landscape Layer...")
     material = bpy.data.materials.get("LST_LandscapeMaterial")
     if material == None:
         return -1
@@ -261,6 +278,7 @@ def create_steepness_layer(name, threshold):
     node_tree.links.new(mix_shader.outputs[0], nodes.get("Material Output").inputs[0])
     
 def update_steepness_layer(name, threshold):
+    print("Update Steepness Layer...")
     material = bpy.data.materials.get("LST_LandscapeMaterial")
     if material == None:
         return -1
@@ -275,13 +293,24 @@ def update_steepness_layer(name, threshold):
         material_group = create_layer_material(name)
     group_node.node_tree = material_group
 
+def update_landscape_textures(texture_scale):
+    material = bpy.data.materials.get("LST_LandscapeMaterial")
+    if material == None:
+        return -1
+    
+    nodes = material.node_tree.nodes
+    scale_x = nodes.get("LST_ScaleX")
+    scale_x.inputs[1].default_value = texture_scale
+    scale_y = nodes.get("LST_ScaleY")
+    scale_y.inputs[1].defualt_value = texture_scale
+
 def link_landscape_layers(num_layers):
     for layer in range(num_layers):
         material = bpy.data.materials.get("LST_LandscapeMaterial")
         node_tree = material.node_tree
         nodes = node_tree.nodes
         node_tree.links.new(nodes.get("LST_Normalize").outputs[0], nodes.get("LST_Layer" + str(layer) + "_ColorRamp").inputs[0])
-        node_tree.links.new(nodes.get("LST_TexCoord").outputs[0], nodes.get("LST_Layer" + str(layer) + "_Shader").inputs[0])
+        node_tree.links.new(nodes.get("LST_UV_Input").outputs[0], nodes.get("LST_Layer" + str(layer) + "_Shader").inputs[0])
         
         mix_shader = nodes.get("LST_Layer" + str(layer) + "_MixShader")
         if mix_shader == None:
@@ -297,22 +326,23 @@ def link_landscape_layers(num_layers):
             node_tree.links.new(mix_shader.outputs[0], nodes.get("LST_Steepness_Mix_Shader").inputs[1])
 
 def load_default_layer_materials():
-    path = os.path.dirname(os.path.abspath(__file__)) + "\\tex\\"
-    for filename in [
-        "grass\\lst_grass_albedo.png", "grass\\lst_grass_normal.png", "grass\\lst_grass_roughness.png",
-        "rock\\lst_rock_albedo.png", "rock\\lst_rock_metallic.png", "rock\\lst_rock_normal.png", "rock\\lst_rock_roughness.png",
-        "sand\\lst_sand_albedo.png", "sand\\lst_sand_normal", "sand\\lst_sand_specular.png",
-        "snow\\lst_snow_albedo.jpg", "snow\\lst_snow_normal.jpg", "snow\\lst_snow_roughness.jpg",
-        "gravel\\lst_gravel_albedo.png", "gravel\\lst_gravel_metallic.png", "gravel\\lst_gravel_normal.png", "gravel\\lst_gravel_roughness.png"]:
-        bpy.ops.image.open(path=path+filename)
-        trunc = filename.split("\\")[1]
-        img = bpy.data.images.get(trunc)
-        tex = bpy.data.textures.new(trunc)
-        tex.type = "IMAGE"
-        tex.update()
-        tex.image = img
+    # filepath = os.path.dirname(os.path.abspath(__file__)) + "\\tex\\"
+    # for filename in [
+    #     "grass\\lst_grass_albedo.png", "grass\\lst_grass_normal.png", "grass\\lst_grass_roughness.png",
+    #     "rock\\lst_rock_albedo.png", "rock\\lst_rock_metallic.png", "rock\\lst_rock_normal.png", "rock\\lst_rock_roughness.png",
+    #     "sand\\lst_sand_albedo.png", "sand\\lst_sand_normal.png", "sand\\lst_sand_specular.png",
+    #     "snow\\lst_snow_albedo.jpg", "snow\\lst_snow_normal.jpg", "snow\\lst_snow_roughness.jpg",
+    #     "gravel\\lst_gravel_albedo.png", "gravel\\lst_gravel_metallic.png", "gravel\\lst_gravel_normal.png", "gravel\\lst_gravel_roughness.png"]:
+    #     print(filepath+filename)
+    #     bpy.ops.image.open(filepath=filepath+filename)
+    #     trunc = filename.split("\\")[1]
+    #     img = bpy.data.images.get(trunc)
+    #     tex = bpy.data.textures.new(trunc)
+    #     tex.type = "IMAGE"
+    #     tex.update()
+    #     tex.image = img
     create_layer_material("Snow", base_color_map="lst_snow_albedo.jpg", normal_map="lst_snow_normal.jpg", roughness_map="lst_snow_roughness.jpg")
-    create_layer_material("Grass", base_color_map="lst_snow_grass.png", normal_map="lst_grass_normal.png", roughness_map="lst_grass_roughness.png")
+    create_layer_material("Grass", base_color_map="lst_grass_albedo.png", normal_map="lst_grass_normal.png", roughness_map="lst_grass_roughness.png")
     create_layer_material("Rock", base_color_map="lst_rock_albedo.png", metallic_map="lst_rock_metallic.png", normal_map="lst_rock_normal.png", roughness_map="lst_rock_roughness.png")
     create_layer_material("Sand", base_color_map="lst_sand_albedo.png", normal_map="lst_sand_normal.png", specular_map="lst_sand_specular.png")
     create_layer_material("Gravel", base_color_map="lst_gravel_albedo.png", metallic_map="lst_gravel_metallic.png", normal_map="lst_gravel_normal.png", roughness_map="lst_gravel_roughness.png")

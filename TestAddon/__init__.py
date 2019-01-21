@@ -7,6 +7,7 @@ import mathutils
 import numpy as np
 
 from bpy_extras.object_utils import AddObjectHelper, object_data_add
+from .material_layering import *
 
 sys.path.append(os.path.dirname(__file__) + "/dep")
 
@@ -62,6 +63,8 @@ class LandscapeGeneratorPanel(Panel) :
         column = self.layout.column(align = True)
         column.prop(scene, "size")
         column = self.layout.column(align = True)
+        column.prop(scene, "depth")
+        column = self.layout.column(align = True)
         column.operator("mesh.create_landscape", text = "Create Landscape")
     #end draw
 
@@ -78,9 +81,12 @@ class TextureGeneratorPanel(Panel) :
         scene = context.scene.properties
         layout = self.layout
 
+        # column = self.layout.column(align = True)
+        # column.prop(scene, "layers")
         column = self.layout.column(align = True)
-        column.prop(scene, "layers")
+        column.operator("mesh.create_texture", text = "Create Texture")
 
+        column = self.layout.column(align = True)
         column.label("Layers:")
         layout.template_list(
             "LayerList", 
@@ -105,7 +111,7 @@ class TextureGeneratorPanel(Panel) :
         column.prop(scene, "steepness_threshold")
 
         column = self.layout.column(align = True)
-        column.operator("mesh.create_texture", text = "Create Texture")
+        column.prop(scene, "texture_scaling")
     #end draw
 
 #end TextureGeneratorPanel
@@ -119,14 +125,14 @@ class CreateLandscape(bpy.types.Operator) :
 
         #procedure for generating landscape
 
-        scene = context.scene.properties
+        settings = context.scene.properties
 
         geo_elevation_data = srtm.get_data()
         #map_center = [20.836962, -156.910592]
-        latitude = scene.latitude
-        longitude = scene.longitude
-        map_size = scene.size
-        depth = 20
+        latitude = settings.latitude
+        longitude = settings.longitude
+        map_size = settings.size
+        depth = settings.depth
 
         lat_1 = latitude - map_size / 2
         lat_2 = latitude + map_size / 2
@@ -187,8 +193,13 @@ class CreateTexture(bpy.types.Operator):
     bl_options = {"UNDO"}
 
     def invoke(self, context, event) :
+        
+        settings = context.scene.properties
 
-        #create Texture
+        lanndscape_mat = create_landscape_material(settings.depth, settings.texture_scaling)
+        create_steepness_layer(settings.steepness_layer_name, settings.steepness_threshold)
+        link_selection_to_material(context)
+        load_default_layer_materials()
 
         print("FINISHED")
 
@@ -206,18 +217,50 @@ class LayerList (UIList):
         layout.prop(item, "end_height")
 
 class MyListItem(PropertyGroup):
-    name = StringProperty(name="Name", default="Layer Name")
+
+    # context = None
+
+    # def set_context(self, context):
+    #     self.context = context
+    
+    # def update_layer_name (self, value):
+    #     #settings = self.context.scene.properties
+    #     settings = value.scene.properties
+    #     update_landscape_layer(settings.active_layer_index, settings.layers_list[settings.active_layer_index].name, self.start_height, self.end_height, settings.layer_blending, settings.layer_blending)
+
+    # def update_layer_start_height (self, value):
+    #     #settings = self.context.scene.properties
+    #     settings = value.scene.properties
+    #     update_landscape_layer(settings.active_layer_index, self.name, settings.layers_list[settings.active_layer_index].start_height, self.end_height, settings.layer_blending, settings.layer_blending)
+
+    # def update_layer_end_height (self, value):
+    #     #settings = self.context.scene.properties
+    #     settings = value.scene.properties
+    #     update_landscape_layer(settings.active_layer_index, self.name, self.start_height, settings.layers_list[settings.active_layer_index].end_height, settings.layer_blending, settings.layer_blending)
+
+    def update_layer (self, value):
+        settings = value.scene.properties
+        layer = settings.layers_list[settings.active_layer_index]
+        update_landscape_layer(settings.active_layer_index, layer.name, layer.start_height, layer.end_height, settings.layer_blending, settings.layer_blending)
+
+    name = StringProperty(
+        name="Name", 
+        default="Layer",
+        update = update_layer
+    )
 
     start_height = FloatProperty(
         name = "Start Height",
         description = "Where this layer begins",
         default = 0,
+        update = update_layer
     )
 
     end_height = FloatProperty(
         name = "End Height",
         description = "Where this layer ends",
         default = 0,
+        update = update_layer
     )
 
 class AddMyListItem(Operator):
@@ -229,6 +272,18 @@ class AddMyListItem(Operator):
         settings = context.scene.properties
         settings.layers_list.add()
         settings.active_layer_index = len(settings.layers_list) - 1
+        #settings.layers_list[settings.active_layer_index].set_context(context)
+
+        create_landscape_layer(
+            settings.active_layer_index, 
+            settings.layers_list[settings.active_layer_index].name, 
+            settings.layers_list[settings.active_layer_index].start_height, 
+            settings.layers_list[settings.active_layer_index].end_height,
+            settings.layer_blending,
+            settings.layer_blending)
+
+        link_landscape_layers(len(settings.layers_list))
+
         return {'FINISHED'}
 
 class RemoveMyListItem(Operator):
@@ -243,11 +298,36 @@ class RemoveMyListItem(Operator):
     def execute(self, context):
         settings = context.scene.properties  
         settings.layers_list.remove(settings.active_layer_index)
+
+        delete_landscape_layer(settings.active_layer_index, len(settings.layers_list))
+
         settings.active_layer_index -= 1
         return {'FINISHED'}
 
 #Properties
 class Addon_Properties(PropertyGroup):
+
+    # def update_steepness_layer_name (self, value):
+    #     settings = value.scene.properties
+    #     update_steepness_layer(settings.steepness_layer_name, self.steepness_threshold)
+
+    # def update_steepness_layer_threshold (self, value):
+    #     settings = value.scene.properties
+    #     update_steepness_layer (self.steepness_layer_name, settings.steepness_threshold)
+    
+    def update_layers (self, value):
+        settings = value.scene.properties
+        for i in range(len(self.layers_list)):
+            layer = self.layers_list[i]
+            update_landscape_layer(i, layer.name, layer.start_height, layer.end_height, settings.layer_blending, settings.layer_blending)
+
+    def update_steepness_l (self, value):
+        settings = value.scene.properties
+        update_steepness_layer(settings.steepness_layer_name, settings.steepness_threshold)
+    
+    def update_textures(self, value):
+        settings = value.scene.properties
+        update_landscape_textures(settings.texture_scaling)
 
     latitude = FloatProperty(
         name = "Lat",
@@ -266,29 +346,45 @@ class Addon_Properties(PropertyGroup):
         description = "Edge length of your map in degree",
         default = 0.5,
         ) 
+
+    depth = FloatProperty(
+        name = "Depth",
+        description = "Depth Scaling of your Map",
+        default = 10,
+        ) 
     
-    layers = IntProperty(
-        name = "Layers",
-        description = "Number of different texture layers",
-        default = 0,
-        )
+    # layers = IntProperty(
+    #     name = "Layers",
+    #     description = "Number of different texture layers",
+    #     default = 0,
+    #     )
 
     layer_blending = FloatProperty(
         name = "Layer Blending",
         description = "Blending value for layer borders",
         default = 0,
+        update = update_layers
         ) 
 
     steepness_layer_name = StringProperty(
         name = "Steepness Layer Name",
         description = "Name of steepness layer",
         default = "Steepness Layer",
+        update = update_steepness_l
         )
 
     steepness_threshold = FloatProperty(
         name = "Steepness Threshold", 
         description = "Threshold for the steepness layer", #measure unit?
-        default = 0.8,
+        default = 45,
+        update = update_steepness_l
+        )
+
+    texture_scaling = FloatProperty(
+        name = "Texture Scaling", 
+        description = "Scaling for the Textures", #measure unit?
+        default = 1000,
+        update = update_textures
         )
 
     layers_list = CollectionProperty(
