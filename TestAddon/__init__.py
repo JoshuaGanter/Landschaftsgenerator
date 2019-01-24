@@ -81,8 +81,6 @@ class TextureGeneratorPanel(Panel) :
         scene = context.scene.properties
         layout = self.layout
 
-        # column = self.layout.column(align = True)
-        # column.prop(scene, "layers")
         column = self.layout.column(align = True)
         column.operator("mesh.create_texture", text = "Create Texture")
 
@@ -196,7 +194,7 @@ class CreateTexture(bpy.types.Operator):
         
         settings = context.scene.properties
 
-        lanndscape_mat = create_landscape_material(settings.depth, settings.texture_scaling)
+        create_landscape_material(settings.depth, settings.texture_scaling)
         create_steepness_layer(settings.steepness_layer_name, settings.steepness_threshold)
         link_selection_to_material(context)
         load_default_layer_materials()
@@ -217,26 +215,6 @@ class LayerList (UIList):
         layout.prop(item, "end_height")
 
 class MyListItem(PropertyGroup):
-
-    # context = None
-
-    # def set_context(self, context):
-    #     self.context = context
-    
-    # def update_layer_name (self, value):
-    #     #settings = self.context.scene.properties
-    #     settings = value.scene.properties
-    #     update_landscape_layer(settings.active_layer_index, settings.layers_list[settings.active_layer_index].name, self.start_height, self.end_height, settings.layer_blending, settings.layer_blending)
-
-    # def update_layer_start_height (self, value):
-    #     #settings = self.context.scene.properties
-    #     settings = value.scene.properties
-    #     update_landscape_layer(settings.active_layer_index, self.name, settings.layers_list[settings.active_layer_index].start_height, self.end_height, settings.layer_blending, settings.layer_blending)
-
-    # def update_layer_end_height (self, value):
-    #     #settings = self.context.scene.properties
-    #     settings = value.scene.properties
-    #     update_landscape_layer(settings.active_layer_index, self.name, self.start_height, settings.layers_list[settings.active_layer_index].end_height, settings.layer_blending, settings.layer_blending)
 
     def update_layer (self, value):
         settings = value.scene.properties
@@ -272,7 +250,6 @@ class AddMyListItem(Operator):
         settings = context.scene.properties
         settings.layers_list.add()
         settings.active_layer_index = len(settings.layers_list) - 1
-        #settings.layers_list[settings.active_layer_index].set_context(context)
 
         create_landscape_layer(
             settings.active_layer_index, 
@@ -307,14 +284,6 @@ class RemoveMyListItem(Operator):
 #Properties
 class Addon_Properties(PropertyGroup):
 
-    # def update_steepness_layer_name (self, value):
-    #     settings = value.scene.properties
-    #     update_steepness_layer(settings.steepness_layer_name, self.steepness_threshold)
-
-    # def update_steepness_layer_threshold (self, value):
-    #     settings = value.scene.properties
-    #     update_steepness_layer (self.steepness_layer_name, settings.steepness_threshold)
-    
     def update_layers (self, value):
         settings = value.scene.properties
         for i in range(len(self.layers_list)):
@@ -353,12 +322,6 @@ class Addon_Properties(PropertyGroup):
         default = 10,
         ) 
     
-    # layers = IntProperty(
-    #     name = "Layers",
-    #     description = "Number of different texture layers",
-    #     default = 0,
-    #     )
-
     layer_blending = FloatProperty(
         name = "Layer Blending",
         description = "Blending value for layer borders",

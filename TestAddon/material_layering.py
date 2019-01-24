@@ -91,6 +91,10 @@ def create_landscape_material(depth, texture_scale):
     divide_node.operation = "DIVIDE"
     divide_node.inputs[1].default_value = depth
 
+    ocean_node = nodes.new("ShaderNodeBsdfDiffuse")
+    ocean_node.name = "LST_Ocean"
+    ocean_node.inputs[0].default_value = (0,0,1,1)
+
     # Link nodes in material
     node_tree.links.new(texture_coordinate.outputs[0], separate_xyz_generated.inputs[0])
     node_tree.links.new(separate_xyz_generated.outputs[0], x_scaling.inputs[0])
@@ -269,7 +273,7 @@ def create_steepness_layer(name, threshold):
 
     # Link the nodes
     node_tree.links.new(nodes.get("LST_TexCoord").outputs[1], separate_xyz_generated.inputs[0])
-    node_tree.links.new(nodes.get("LST_TexCoord").outputs[0], material_node.inputs[0])
+    node_tree.links.new(nodes.get("LST_UV_Input").outputs[0], material_node.inputs[0])
     node_tree.links.new(separate_xyz_generated.outputs[2], arccos_node.inputs[0])
     node_tree.links.new(arccos_node.outputs[0], logistic_node.inputs[0])
     node_tree.links.new(multiply_node.outputs[0], logistic_node.inputs[1])
@@ -302,7 +306,7 @@ def update_landscape_textures(texture_scale):
     scale_x = nodes.get("LST_ScaleX")
     scale_x.inputs[1].default_value = texture_scale
     scale_y = nodes.get("LST_ScaleY")
-    scale_y.inputs[1].defualt_value = texture_scale
+    scale_y.inputs[1].default_value = texture_scale
 
 def link_landscape_layers(num_layers):
     for layer in range(num_layers):
@@ -320,6 +324,8 @@ def link_landscape_layers(num_layers):
         node_tree.links.new(nodes.get("LST_Layer" + str(layer) + "_Shader").outputs[0], mix_shader.inputs[2])
         node_tree.links.new(nodes.get("LST_Layer" + str(layer) + "_ColorRamp").outputs[1], mix_shader.inputs[0])
 
+        if layer == 0:
+            node_tree.links.new(nodes.get("LST_Ocean").outputs[0], mix_shader.inputs[1])
         if layer != 0:
             node_tree.links.new(nodes.get("LST_Layer" + str(layer - 1) + "_MixShader").outputs[0], mix_shader.inputs[1])
         if layer == num_layers - 1:
