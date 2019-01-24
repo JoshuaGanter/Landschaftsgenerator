@@ -1,5 +1,6 @@
 # Landschaftsgenerator
 Für Blender 2.7.9b
+![Beispiel-Render einer Landschaft](/Landschaftsgenerator_Render.png)
 
 ## Installationsanleitung
 1. [Landschaftsgenerator.zip](Landschaftsgenerator.zip) downloaden
