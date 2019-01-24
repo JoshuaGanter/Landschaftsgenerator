@@ -181,7 +181,7 @@ def create_landscape_layer(index, name, start_height, end_height, blend_top=.05,
     color_ramp.color_ramp.elements[0].color = (1,1,1,0)
     color_ramp.color_ramp.elements[1].position = clip(start_height + blend_bottom, 0, 1)
     color_ramp.color_ramp.elements[1].color = (1,1,1,1)
-    color_ramp.color_ramp.elements.new(clip(end_height - blend_top, 0, 1))
+    color_ramp.color_ramp.elements.new(clip(end_height + blend_top, 0, 1))
     color_ramp.color_ramp.elements[2].color = (1,1,1,1)
     color_ramp.color_ramp.elements.new(clip(end_height + blend_top, 0, 1))
     color_ramp.color_ramp.elements[3].color=(1,1,1,0)
@@ -326,21 +326,18 @@ def link_landscape_layers(num_layers):
             node_tree.links.new(mix_shader.outputs[0], nodes.get("LST_Steepness_Mix_Shader").inputs[1])
 
 def load_default_layer_materials():
-    # filepath = os.path.dirname(os.path.abspath(__file__)) + "\\tex\\"
-    # for filename in [
-    #     "grass\\lst_grass_albedo.png", "grass\\lst_grass_normal.png", "grass\\lst_grass_roughness.png",
-    #     "rock\\lst_rock_albedo.png", "rock\\lst_rock_metallic.png", "rock\\lst_rock_normal.png", "rock\\lst_rock_roughness.png",
-    #     "sand\\lst_sand_albedo.png", "sand\\lst_sand_normal.png", "sand\\lst_sand_specular.png",
-    #     "snow\\lst_snow_albedo.jpg", "snow\\lst_snow_normal.jpg", "snow\\lst_snow_roughness.jpg",
-    #     "gravel\\lst_gravel_albedo.png", "gravel\\lst_gravel_metallic.png", "gravel\\lst_gravel_normal.png", "gravel\\lst_gravel_roughness.png"]:
-    #     print(filepath+filename)
-    #     bpy.ops.image.open(filepath=filepath+filename)
-    #     trunc = filename.split("\\")[1]
-    #     img = bpy.data.images.get(trunc)
-    #     tex = bpy.data.textures.new(trunc)
-    #     tex.type = "IMAGE"
-    #     tex.update()
-    #     tex.image = img
+    filepath = os.path.dirname(os.path.abspath(__file__)) + "\\tex\\"
+    for filename in [
+        "grass\\lst_grass_albedo.png", "grass\\lst_grass_normal.png", "grass\\lst_grass_roughness.png",
+        "rock\\lst_rock_albedo.png", "rock\\lst_rock_metallic.png", "rock\\lst_rock_normal.png", "rock\\lst_rock_roughness.png",
+        "sand\\lst_sand_albedo.png", "sand\\lst_sand_normal.png", "sand\\lst_sand_specular.png",
+        "snow\\lst_snow_albedo.jpg", "snow\\lst_snow_normal.jpg", "snow\\lst_snow_roughness.jpg",
+        "gravel\\lst_gravel_albedo.png", "gravel\\lst_gravel_metallic.png", "gravel\\lst_gravel_normal.png", "gravel\\lst_gravel_roughness.png"]:
+        bpy.ops.image.open(filepath=filepath+filename)
+        trunc = filename.split("\\")[1]
+        img = bpy.data.images.get(trunc)
+        tex = bpy.data.textures.new(trunc, "IMAGE")
+        tex.image = img
     create_layer_material("Snow", base_color_map="lst_snow_albedo.jpg", normal_map="lst_snow_normal.jpg", roughness_map="lst_snow_roughness.jpg")
     create_layer_material("Grass", base_color_map="lst_grass_albedo.png", normal_map="lst_grass_normal.png", roughness_map="lst_grass_roughness.png")
     create_layer_material("Rock", base_color_map="lst_rock_albedo.png", metallic_map="lst_rock_metallic.png", normal_map="lst_rock_normal.png", roughness_map="lst_rock_roughness.png")
